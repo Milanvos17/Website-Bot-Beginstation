@@ -104,12 +104,6 @@ npm run dev
 
 The server will start on `http://localhost:3000`
 
-## Pre-configured Owner Account
-
-The application comes with a pre-configured owner account:
-
-- **Email**: Milanwerkemail@gmail.com
-- **Password**: Nalim213!!!?!
 
 You can log in immediately with these credentials to access all features.
 
