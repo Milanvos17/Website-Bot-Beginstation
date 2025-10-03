@@ -1,43 +1,30 @@
-const express = require('express');
-const session = require('express-session');
-const bodyParser = require('body-parser');
-const bcrypt = require('bcryptjs');
-const axios = require('axios');
-const crypto = require('crypto');
-require('dotenv').config();
+import express from 'express';
+import session from 'express-session';
+import bodyParser from 'body-parser';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
+import { MongoClient, ObjectId } from 'mongodb';
+import nodemailer from 'nodemailer';
+import { requireAuth, requireRole } from './lib/auth.js';
 
-const { 
-  initializeDatabase, 
-  createOwnerAccount, 
-  userOperations, 
-  buttonOperations,
-  pendingRegistrationOperations,
-  botOperations,
-  botWebhookOperations
-} = require('./database');
-const { sendApprovalRequest, sendApprovalNotification } = require('./emailService');
-const { requireAuth, requireRole, isValidEmail, isValidPassword, validatePassword } = require('./middleware');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-// Initialize database and create owner account
-async function initApp() {
-  try {
-    await initializeDatabase();
-    await createOwnerAccount(process.env.OWNER_EMAIL, process.env.OWNER_PASS);
-
-    // Create default Bot 1
-    const owner = await userOperations.findByEmail(process.env.OWNER_EMAIL);
-    if (owner) {
-      await botOperations.createDefaultBot(owner.id);
-    }
-  } catch (error) {
-    console.error('Initialization error:', error);
-  }
-}
-
-initApp();
+// Database connection
+let db;
+MongoClient.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(client => {
+    db = client.db();
+    console.log('Connected to MongoDB');
+  })
+  .catch(error => console.error('MongoDB connection error:', error));
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -90,7 +77,7 @@ app.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await userOperations.findByEmail(email);
+    const user = await db.collection('users').findOne({ email });
 
     if (!user) {
       return res.render('login', { error: 'Invalid email or password' });
@@ -108,7 +95,7 @@ app.post('/login', async (req, res) => {
     }
 
     // Save session
-    req.session.userId = user.id;
+    req.session.userId = user._id;
     req.session.userEmail = user.email;
     req.session.userRole = user.role;
 
@@ -160,7 +147,7 @@ app.post('/register', async (req, res) => {
     }
     
     // check if a user already exists
-    const existingUser = await userOperations.findByEmail(email);
+    const existingUser = await db.collection('users').findOne({ email });
     if (existingUser) {
       return res.render('register', { 
         error: 'Email already registered', 
@@ -535,7 +522,7 @@ app.get('/logout', async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
   console.log(`Owner account: ${process.env.OWNER_EMAIL}`);
 });
