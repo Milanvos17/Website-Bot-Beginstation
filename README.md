@@ -84,8 +84,6 @@ The `.env` file is already configured with the required settings:
 ```env
 PORT=3000
 SESSION_SECRET=super_secret_key_here
-OWNER_EMAIL=Milanwerkemail@gmail.com
-OWNER_PASS=Nalim213!!!?!
 MAIL_USER=milanv482@gmail.com
 MAIL_PASS=jved ract cren oumt
 ```
