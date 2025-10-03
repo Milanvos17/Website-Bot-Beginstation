@@ -1,0 +1,43 @@
+// Trigger webhook (button click)$
+app.post('/trigger-webhook/:buttonId', requireAuth, async (req, res) => {$
+  try {$
+    const button = buttonOperations.getById(req.params.buttonId);$
+    $
+    if (!button) {$
+      return res.status(404).json({ success: false, message: 'Button not found' });$
+    }$
+    $
+    // Check visibility permissions$
+    if (button.visibility === 'private' && req.session.userRole === 'user') {$
+      return res.status(403).json({ success: false, message: 'Access denied' });$
+    }$
+    $
+    // Trigger webhook$
+    try {$
+      const response = await axios.post(button.webhook_url, {$
+        buttonId: button.id,$
+        buttonTitle: button.title,$
+        triggeredBy: req.session.userEmail,$
+        timestamp: new Date().toISOString()$
+      }, {$
+        timeout: 5000$
+      });$
+      $
+      res.json({ $
+        success: true, $
+        message: `Webhook triggered successfully for "${button.title}"`,$
+        webhookResponse: response.status$
+      });$
+    } catch (webhookError) {$
+      console.error('Webhook error:', webhookError.message);$
+      res.json({ $
+        success: true, $
+        message: `Webhook request sent for "${button.title}" (Note: Webhook endpoint may be unavailable)`,$
+        warning: 'Webhook endpoint did not respond'$
+      });$
+    }$
+  } catch (error) {$
+    console.error('Trigger webhook error:', error);$
+    res.status(500).json({ success: false, message: 'An error occurred' });$
+  }$
+});$

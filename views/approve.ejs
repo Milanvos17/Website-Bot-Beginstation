@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Approve Registration - Beginstation Robot Control</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>🤖 Beginstation Robot Control</h1>
+    </div>
+  </header>
+
+  <div class="approval-box">
+    <h2>Registration Approval Request</h2>
+    
+    <div class="user-details">
+      <p><strong>Email:</strong> <%= user.email %></p>
+      <p><strong>Registration Date:</strong> <%= new Date(user.created_at).toLocaleString() %></p>
+    </div>
+
+    <form action="/approve-registration" method="POST">
+      <input type="hidden" name="token" value="<%= token %>">
+      
+      <div class="form-group">
+        <label><strong>Assign Role:</strong></label>
+        <div class="radio-group">
+          <label>
+            <input type="radio" name="role" value="user" checked>
+            User (Can activate buttons)
+          </label>
+          <label>
+            <input type="radio" name="role" value="admin">
+            Admin (Can add buttons)
+          </label>
+        </div>
+      </div>
+
+      <div class="approval-actions">
+        <button type="submit" name="action" value="approve" class="btn-success">
+          ✓ Approve Registration
+        </button>
+        <button type="submit" name="action" value="deny" class="btn-danger">
+          ✗ Deny Registration
+        </button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

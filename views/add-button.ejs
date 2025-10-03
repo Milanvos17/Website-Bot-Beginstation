@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Button - Beginstation Robot Control</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>🤖 Beginstation Robot Control</h1>
+      <div class="user-info">
+        <a href="/dashboard" class="logout-btn">Back to Dashboard</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="auth-container" style="max-width: 600px;">
+    <div class="auth-box">
+      <h2>Add New Button</h2>
+      
+      <% if (error) { %>
+        <div class="error-message">
+          <%= error %>
+        </div>
+      <% } %>
+
+      <% if (success) { %>
+        <div class="success-message">
+          <%= success %>
+        </div>
+      <% } %>
+
+      <form action="/add-button" method="POST">
+        <div class="form-group">
+          <label for="title">Button Title *</label>
+          <input type="text" id="title" name="title" required placeholder="e.g., Start Motor, Turn On Lights">
+        </div>
+
+        <div class="form-group">
+          <label for="category">Select Existing Category</label>
+          <select id="category" name="category">
+            <option value="">-- Select Category --</option>
+            <% categories.forEach(cat => { %>
+              <option value="<%= cat.category %>"><%= cat.category %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="newCategory">Or Create New Category</label>
+          <input type="text" id="newCategory" name="newCategory" placeholder="e.g., Motors, Sensors, Lights">
+          <small style="color: #666; display: block; margin-top: 5px;">
+            Leave blank to use selected category above
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="webhookUrl">Webhook URL *</label>
+          <input type="url" id="webhookUrl" name="webhookUrl" required placeholder="https://example.com/webhook">
+          <small style="color: #666; display: block; margin-top: 5px;">
+            This URL will be called when the button is clicked
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label>Visibility *</label>
+          <div class="radio-group">
+            <label>
+              <input type="radio" name="visibility" value="public" checked>
+              Public (All users can see)
+            </label>
+            <label>
+              <input type="radio" name="visibility" value="private">
+              Private (Admin/Owner only)
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary">Add Button</button>
+      </form>
+
+      <div style="margin-top: 20px; text-align: center;">
+        <a href="/dashboard" class="btn-secondary">Cancel</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Clear category selection when typing in new category
+    document.getElementById('newCategory').addEventListener('input', function() {
+      if (this.value.trim() !== '') {
+        document.getElementById('category').value = '';
+      }
+    });
+
+    // Clear new category when selecting existing category
+    document.getElementById('category').addEventListener('change', function() {
+      if (this.value !== '') {
+        document.getElementById('newCategory').value = '';
+      }
+    });
+  </script>
+</body>
+</html>

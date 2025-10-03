@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Beginstation Robot Control</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>🤖 Beginstation Robot Control</h1>
+    </div>
+  </header>
+
+  <div class="auth-container">
+    <div class="auth-box">
+      <h2>Register</h2>
+      
+      <% if (error) { %>
+        <div class="error-message">
+          <%= error %>
+        </div>
+      <% } %>
+
+      <% if (success) { %>
+        <div class="success-message">
+          <%= success %>
+        </div>
+      <% } %>
+
+      <form action="/register" method="POST">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" required placeholder="Enter your email">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required placeholder="Create a password">
+          <div class="password-requirements">
+            <strong>Password Requirements:</strong>
+            <ul>
+              <li>Minimum 8 characters</li>
+              <li>At least one uppercase letter (A-Z)</li>
+              <li>At least one lowercase letter (a-z)</li>
+              <li>At least one number (0-9)</li>
+              <li>At least one special character (@$!%*?&)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="confirmPassword">Confirm Password</label>
+          <input type="password" id="confirmPassword" name="confirmPassword" required placeholder="Confirm your password">
+        </div>
+
+        <button type="submit" class="btn-primary">Register</button>
+      </form>
+
+      <div class="auth-link">
+        Already have an account? <a href="/login">Login here</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

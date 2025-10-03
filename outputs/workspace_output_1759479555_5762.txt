@@ -1,0 +1,3 @@
+367:// Trigger webhook (button click) - FIRE AND FORGET
+381:    // Trigger webhook without waiting for response (fire and forget)
+400:    console.error('Trigger webhook error:', error);

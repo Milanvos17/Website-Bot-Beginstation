@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Beginstation Robot Control</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .bot-selector-container {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 15px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .bot-selector-label {
+      font-weight: 700;
+      color: #dc143c;
+      font-size: 16px;
+    }
+
+    .bot-dropdown {
+      padding: 10px 20px;
+      border: 2px solid #e8e8e8;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: white;
+      min-width: 150px;
+    }
+
+    .bot-dropdown:focus {
+      outline: none;
+      border-color: #dc143c;
+      box-shadow: 0 0 0 4px rgba(220, 20, 60, 0.1);
+    }
+
+    .create-bot-btn {
+      background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+
+    .create-bot-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(40, 167, 69, 0.4);
+    }
+
+    .webhook-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .webhook-missing {
+      color: #dc143c;
+      font-weight: 700;
+      font-size: 18px;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .webhook-configured {
+      color: #28a745;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .webhook-edit-btn {
+      background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .webhook-edit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    }
+
+    .button-card-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .webhook-count-badge {
+      background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 8px;
+      display: inline-block;
+    }
+
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      animation: fadeIn 0.3s ease;
+    }
+
+    .modal-content {
+      background-color: white;
+      margin: 10% auto;
+      padding: 30px;
+      border-radius: 15px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translateY(-50px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .modal-header h3 {
+      color: #dc143c;
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .close-modal {
+      font-size: 28px;
+      font-weight: bold;
+      color: #999;
+      cursor: pointer;
+      transition: color 0.3s ease;
+    }
+
+    .close-modal:hover {
+      color: #dc143c;
+    }
+
+    .modal-body {
+      margin-bottom: 20px;
+    }
+
+    .modal-body label {
+      display: block;
+      margin-bottom: 8px;
+      color: #555;
+      font-weight: 600;
+    }
+
+    .modal-body input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e8e8e8;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+
+    .modal-body input:focus {
+      outline: none;
+      border-color: #dc143c;
+      box-shadow: 0 0 0 4px rgba(220, 20, 60, 0.1);
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .modal-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .modal-btn-primary {
+      background: linear-gradient(135deg, #dc143c 0%, #a00000 100%);
+      color: white;
+    }
+
+    .modal-btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(220, 20, 60, 0.3);
+    }
+
+    .modal-btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .modal-btn-secondary:hover {
+      background: #5a6268;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>🤖 Beginstation Robot Control</h1>
+      <div class="user-info">
+        <span class="user-email"><%= user.email %></span>
+        <span class="role-badge"><%= user.role %></span>
+        <a href="/logout" class="logout-btn">Logout</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Bot Selector -->
+    <div class="bot-selector-container">
+      <span class="bot-selector-label">🤖 Select Bot:</span>
+      <select class="bot-dropdown" id="botSelector" onchange="changeBotView()">
+        <option value="all" <%= selectedBotId === 'all' ? 'selected' : '' %>>ALL (Trigger All Bots)</option>
+        <% bots.forEach(bot => { %>
+          <option value="<%= bot.id %>" <%= selectedBotId == bot.id ? 'selected' : '' %>><%= bot.name %></option>
+        <% }) %>
+      </select>
+      
+      <% if (user.role === 'admin' || user.role === 'owner') { %>
+        <button class="create-bot-btn" onclick="createNewBot()">+ Create New Bot</button>
+      <% } %>
+    </div>
+
+    <div class="dashboard-header">
+      <h2>Control Dashboard</h2>
+      <% if (user.role === 'admin' || user.role === 'owner') { %>
+        <a href="/add-button" class="add-button-link">Add New Button</a>
+      <% } %>
+    </div>
+
+    <% if (Object.keys(buttonsByCategory).length === 0) { %>
+      <div class="category-section">
+        <div class="no-buttons">
+          No buttons available yet.
+          <% if (user.role === 'admin' || user.role === 'owner') { %>
+            <br><br>Click "Add New Button" to create your first control button.
+          <% } %>
+        </div>
+      </div>
+    <% } else { %>
+      <% for (const [category, buttons] of Object.entries(buttonsByCategory)) { %>
+        <div class="category-section">
+          <h3><%= category %></h3>
+          <div class="buttons-grid">
+            <% buttons.forEach(button => { %>
+              <div class="button-card" onclick="triggerWebhook(<%= button.id %>, '<%= button.title %>')">
+                <div class="button-card-content">
+                  <h4><%= button.title %></h4>
+                  <span class="visibility-badge <%= button.visibility %>">
+                    <%= button.visibility %>
+                  </span>
+                  
+                  <% if (selectedBotId !== 'all') { %>
+                    <!-- Single bot view -->
+                    <div class="webhook-indicator">
+                      <% if (!button.bot_webhook_url) { %>
+                        <span class="webhook-missing" title="Webhook not configured">!!!</span>
+                        <span style="font-size: 11px; color: #999;">No webhook</span>
+                      <% } else { %>
+                        <span class="webhook-configured">✓ Configured</span>
+                      <% } %>
+                    </div>
+                    <% if (user.role === 'admin' || user.role === 'owner') { %>
+                      <button class="webhook-edit-btn" onclick="event.stopPropagation(); editWebhook(<%= button.id %>, '<%= button.title %>', '<%= button.bot_webhook_url || '' %>')">
+                        <%= button.bot_webhook_url ? 'Edit' : 'Add' %> Webhook
+                      </button>
+                    <% } %>
+                  <% } else { %>
+                    <!-- ALL view -->
+                    <div class="webhook-indicator">
+                      <% if (button.webhook_count === 0) { %>
+                        <span class="webhook-missing" title="No webhooks configured">!!!</span>
+                        <span style="font-size: 11px; color: #999;">No webhooks</span>
+                      <% } else if (button.webhook_count < totalBots) { %>
+                        <span class="webhook-count-badge"><%= button.webhook_count %>/<%= totalBots %> bots</span>
+                      <% } else { %>
+                        <span class="webhook-configured">✓ All bots ready</span>
+                      <% } %>
+                    </div>
+                  <% } %>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      <% } %>
+    <% } %>
+  </div>
+
+  <!-- Webhook Edit Modal -->
+  <div id="webhookModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Edit Webhook URL</h3>
+        <span class="close-modal" onclick="closeWebhookModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 15px; color: #666;">
+          <strong>Button:</strong> <span id="modalButtonTitle"></span><br>
+          <strong>Bot:</strong> <span id="modalBotName"></span>
+        </p>
+        <label for="webhookUrlInput">Webhook URL:</label>
+        <input type="url" id="webhookUrlInput" placeholder="https://example.com/webhook">
+        <input type="hidden" id="modalButtonId">
+        <input type="hidden" id="modalBotId">
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-secondary" onclick="closeWebhookModal()">Cancel</button>
+        <button class="modal-btn modal-btn-primary" onclick="saveWebhook()">Save Webhook</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const currentBotId = '<%= selectedBotId %>';
+    
+    function changeBotView() {
+      const botId = document.getElementById('botSelector').value;
+      window.location.href = `/dashboard?bot=${botId}`;
+    }
+
+    async function createNewBot() {
+      try {
+        const response = await fetch('/create-bot', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showToast(data.message, 'success');
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else {
+          showToast(data.message || 'Failed to create bot', 'error');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showToast('An error occurred while creating the bot', 'error');
+      }
+    }
+
+    function editWebhook(buttonId, buttonTitle, currentUrl) {
+      const botSelector = document.getElementById('botSelector');
+      const selectedBot = botSelector.options[botSelector.selectedIndex];
+      
+      document.getElementById('modalButtonTitle').textContent = buttonTitle;
+      document.getElementById('modalBotName').textContent = selectedBot.text;
+      document.getElementById('webhookUrlInput').value = currentUrl || '';
+      document.getElementById('modalButtonId').value = buttonId;
+      document.getElementById('modalBotId').value = currentBotId;
+      
+      document.getElementById('webhookModal').style.display = 'block';
+    }
+
+    function closeWebhookModal() {
+      document.getElementById('webhookModal').style.display = 'none';
+    }
+
+    async function saveWebhook() {
+      const buttonId = document.getElementById('modalButtonId').value;
+      const botId = document.getElementById('modalBotId').value;
+      const webhookUrl = document.getElementById('webhookUrlInput').value;
+
+      if (!webhookUrl || !webhookUrl.trim()) {
+        showToast('Please enter a webhook URL', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch('/update-bot-webhook', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            buttonId: buttonId,
+            botId: botId,
+            webhookUrl: webhookUrl
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showToast(data.message, 'success');
+          closeWebhookModal();
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else {
+          showToast(data.message || 'Failed to update webhook', 'error');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showToast('An error occurred while updating the webhook', 'error');
+      }
+    }
+
+    async function triggerWebhook(buttonId, buttonTitle) {
+      try {
+        const response = await fetch(`/trigger-webhook/${buttonId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            botId: currentBotId
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showToast(data.message, 'success');
+        } else {
+          showToast(data.message || 'Failed to trigger webhook', 'error');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showToast('An error occurred while triggering the webhook', 'error');
+      }
+    }
+
+    function showToast(message, type = 'success') {
+      const existingToast = document.querySelector('.toast');
+      if (existingToast) {
+        existingToast.remove();
+      }
+
+      const toast = document.createElement('div');
+      toast.className = `toast ${type === 'error' ? 'error' : ''}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+      const modal = document.getElementById('webhookModal');
+      if (event.target === modal) {
+        closeWebhookModal();
+      }
+    }
+  </script>
+
+  <style>
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+    }
+  </style>
+</body>
+</html>

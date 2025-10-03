@@ -1,0 +1,24 @@
+
+> beginstation-robot-control@1.0.0 start
+> node server.js
+
+Database initialized successfully
+Owner account already exists
+Server running on http://localhost:3000
+Owner account: Milanwerkemail@gmail.com
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

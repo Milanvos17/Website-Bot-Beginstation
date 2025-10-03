@@ -1,0 +1,419 @@
+const express = require('express');
+const session = require('express-session');
+const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt');
+const axios = require('axios');
+const crypto = require('crypto');
+require('dotenv').config();
+
+const { 
+  initializeDatabase, 
+  createOwnerAccount, 
+  userOperations, 
+  buttonOperations,
+  pendingRegistrationOperations,
+  botOperations,
+  botWebhookOperations
+} = require('./database');
+const { sendApprovalRequest, sendApprovalNotification } = require('./emailService');
+const { requireAuth, requireRole, isValidEmail, isValidPassword, validatePassword } = require('./middleware');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Initialize database and create owner account
+initializeDatabase();
+createOwnerAccount(process.env.OWNER_EMAIL, process.env.OWNER_PASS);
+
+// Create default Bot 1
+setTimeout(() => {
+  const owner = userOperations.findByEmail(process.env.OWNER_EMAIL);
+  if (owner) {
+    botOperations.createDefaultBot(owner.id);
+  }
+}, 100);
+
+// Middleware
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(express.static('public'));
+app.set('view engine', 'ejs');
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: false, // Set to true if using HTTPS
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Routes
+
+// Home - redirect to dashboard or login
+app.get('/', (req, res) => {
+  if (req.session.userId) {
+    res.redirect('/dashboard');
+  } else {
+    res.redirect('/login');
+  }
+});
+
+// Login page
+app.get('/login', (req, res) => {
+  if (req.session.userId) {
+    return res.redirect('/dashboard');
+  }
+  res.render('login', { error: null });
+});
+
+// Login POST
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  
+  try {
+    const user = userOperations.findByEmail(email);
+    
+    if (!user) {
+      return res.render('login', { error: 'Invalid email or password' });
+    }
+    
+    if (user.approved === 0) {
+      return res.render('login', { error: 'Your account is pending approval' });
+    }
+    
+    const passwordMatch = bcrypt.compareSync(password, user.password);
+    
+    if (!passwordMatch) {
+      return res.render('login', { error: 'Invalid email or password' });
+    }
+    
+    // Set session
+    req.session.userId = user.id;
+    req.session.userEmail = user.email;
+    req.session.userRole = user.role;
+    
+    res.redirect('/dashboard');
+  } catch (error) {
+    console.error('Login error:', error);
+    res.render('login', { error: 'An error occurred during login' });
+  }
+});
+
+// Registration page
+app.get('/register', (req, res) => {
+  if (req.session.userId) {
+    return res.redirect('/dashboard');
+  }
+  res.render('register', { error: null, success: null });
+});
+
+// Registration POST
+app.post('/register', async (req, res) => {
+  const { email, password, confirmPassword } = req.body;
+  
+  try {
+    // Validate email
+    if (!isValidEmail(email)) {
+      return res.render('register', { 
+        error: 'Invalid email format', 
+        success: null 
+      });
+    }
+    
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.render('register', { 
+        error: passwordValidation.errors.join('. '), 
+        success: null 
+      });
+    }
+    
+    // Check password match
+    if (password !== confirmPassword) {
+      return res.render('register', { 
+        error: 'Passwords do not match', 
+        success: null 
+      });
+    }
+    
+    // Check if user already exists
+    const existingUser = userOperations.findByEmail(email);
+    if (existingUser) {
+      return res.render('register', { 
+        error: 'Email already registered', 
+        success: null 
+      });
+    }
+    
+    // Generate approval token
+    const approvalToken = crypto.randomBytes(32).toString('hex');
+    
+    // Hash password
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    
+    // Store pending registration
+    pendingRegistrationOperations.create(email, hashedPassword, approvalToken);
+    
+    // Send approval request to owner
+    await sendApprovalRequest(email, approvalToken);
+    
+    res.render('register', { 
+      error: null, 
+      success: 'Registration submitted! Please wait for owner approval. You will receive an email notification.' 
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.render('register', { 
+      error: 'An error occurred during registration', 
+      success: null 
+    });
+  }
+});
+
+// Approval page (for owner)
+app.get('/approve-registration', requireAuth, requireRole('owner'), (req, res) => {
+  const { token } = req.query;
+  
+  if (!token) {
+    return res.status(400).send('Invalid approval link');
+  }
+  
+  const pendingUser = pendingRegistrationOperations.findByToken(token);
+  
+  if (!pendingUser) {
+    return res.status(404).send('Registration request not found or already processed');
+  }
+  
+  res.render('approve', { user: pendingUser, token });
+});
+
+// Approve/Deny registration POST
+app.post('/approve-registration', requireAuth, requireRole('owner'), async (req, res) => {
+  const { token, action, role } = req.body;
+  
+  try {
+    const pendingUser = pendingRegistrationOperations.findByToken(token);
+    
+    if (!pendingUser) {
+      return res.status(404).send('Registration request not found');
+    }
+    
+    if (action === 'approve') {
+      // Create user account
+      userOperations.create(pendingUser.email, pendingUser.password, role, 1);
+      
+      // Send approval notification
+      await sendApprovalNotification(pendingUser.email, true, role);
+      
+      // Delete pending registration
+      pendingRegistrationOperations.delete(token);
+      
+      res.render('approval-result', { 
+        success: true, 
+        message: `User ${pendingUser.email} has been approved with role: ${role}` 
+      });
+    } else if (action === 'deny') {
+      // Send denial notification
+      await sendApprovalNotification(pendingUser.email, false);
+      
+      // Delete pending registration
+      pendingRegistrationOperations.delete(token);
+      
+      res.render('approval-result', { 
+        success: true, 
+        message: `Registration for ${pendingUser.email} has been denied` 
+      });
+    } else {
+      res.status(400).send('Invalid action');
+    }
+  } catch (error) {
+    console.error('Approval error:', error);
+    res.status(500).send('An error occurred during approval process');
+  }
+});
+
+// Dashboard
+app.get('/dashboard', requireAuth, (req, res) => {
+  try {
+    let buttons;
+    
+    // Owner and Admin can see all buttons
+    if (req.session.userRole === 'owner' || req.session.userRole === 'admin') {
+      buttons = buttonOperations.getAll();
+    } else {
+      // Regular users only see public buttons
+      buttons = buttonOperations.getPublic();
+    }
+    
+    // Get all bots
+    const bots = botOperations.getAll();
+    
+    // Get selected bot from query parameter (default to 'all')
+    const selectedBotId = req.query.bot || 'all';
+    
+    // If a specific bot is selected, get bot-specific webhooks
+    if (selectedBotId !== 'all') {
+      const botWebhooks = botWebhookOperations.getAllByBot(parseInt(selectedBotId));
+      
+      // Add bot-specific webhook info to buttons
+      buttons = buttons.map(button => {
+        const botWebhook = botWebhooks.find(bw => bw.button_id === button.id);
+        return {
+          ...button,
+          bot_webhook_url: botWebhook ? botWebhook.webhook_url : null,
+          bot_webhook_id: botWebhook ? botWebhook.id : null
+        };
+      });
+    } else {
+      // For "ALL" view, check if each button has webhooks for all bots
+      buttons = buttons.map(button => {
+        const buttonWebhooks = botWebhookOperations.getAllByButton(button.id);
+        const hasAllWebhooks = buttonWebhooks.length === bots.length &amp;&amp; 
+                               buttonWebhooks.every(bw => bw.webhook_url &amp;&amp; bw.webhook_url.trim() !== '');
+        return {
+          ...button,
+          has_all_webhooks: hasAllWebhooks,
+          webhook_count: buttonWebhooks.filter(bw => bw.webhook_url &amp;&amp; bw.webhook_url.trim() !== '').length
+        };
+      });
+    }
+    
+    // Group buttons by category
+    const buttonsByCategory = {};
+    buttons.forEach(button => {
+      if (!buttonsByCategory[button.category]) {
+        buttonsByCategory[button.category] = [];
+      }
+      buttonsByCategory[button.category].push(button);
+    });
+    
+    res.render('dashboard', {
+      user: {
+        email: req.session.userEmail,
+        role: req.session.userRole
+      },
+      buttonsByCategory,
+      bots,
+      selectedBotId,
+      totalBots: bots.length
+    });
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.status(500).send('An error occurred loading the dashboard');
+  }
+});
+
+// Add button page (Admin and Owner only)
+app.get('/add-button', requireAuth, requireRole('admin', 'owner'), (req, res) => {
+  const categories = buttonOperations.getCategories();
+  res.render('add-button', { 
+    categories,
+    error: null,
+    success: null
+  });
+});
+
+// Add button POST
+app.post('/add-button', requireAuth, requireRole('admin', 'owner'), (req, res) => {
+  const { title, category, newCategory, webhookUrl, visibility } = req.body;
+  
+  try {
+    // Validate inputs
+    if (!title || !webhookUrl || !visibility) {
+      const categories = buttonOperations.getCategories();
+      return res.render('add-button', { 
+        categories,
+        error: 'All fields are required',
+        success: null
+      });
+    }
+    
+    // Determine category (use new category if provided, otherwise use existing)
+    const finalCategory = newCategory && newCategory.trim() !== '' ? newCategory.trim() : category;
+    
+    if (!finalCategory) {
+      const categories = buttonOperations.getCategories();
+      return res.render('add-button', { 
+        categories,
+        error: 'Please select or create a category',
+        success: null
+      });
+    }
+    
+    // Create button
+    buttonOperations.create(title, finalCategory, webhookUrl, visibility, req.session.userId);
+    
+    const categories = buttonOperations.getCategories();
+    res.render('add-button', { 
+      categories,
+      error: null,
+      success: 'Button added successfully!'
+    });
+  } catch (error) {
+    console.error('Add button error:', error);
+    const categories = buttonOperations.getCategories();
+    res.render('add-button', { 
+      categories,
+      error: 'An error occurred while adding the button',
+      success: null
+    });
+  }
+});
+
+// Trigger webhook (button click) - FIRE AND FORGET
+app.post('/trigger-webhook/:buttonId', requireAuth, async (req, res) => {
+  try {
+    const button = buttonOperations.getById(req.params.buttonId);
+    
+    if (!button) {
+      return res.status(404).json({ success: false, message: 'Button not found' });
+    }
+    
+    // Check visibility permissions
+    if (button.visibility === 'private' && req.session.userRole === 'user') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    
+    // Trigger webhook without waiting for response (fire and forget)
+    axios.post(button.webhook_url, {
+      buttonId: button.id,
+      buttonTitle: button.title,
+      triggeredBy: req.session.userEmail,
+      timestamp: new Date().toISOString()
+    }, {
+      timeout: 5000
+    }).catch(error => {
+      // Log error but don't block the response
+      console.error('Webhook error:', error.message);
+    });
+    
+    // Immediately respond to user without waiting for webhook
+    res.json({ 
+      success: true, 
+      message: `Button "${button.title}" activated successfully!`
+    });
+  } catch (error) {
+    console.error('Trigger webhook error:', error);
+    res.status(500).json({ success: false, message: 'An error occurred' });
+  }
+});
+
+// Logout
+app.get('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+    }
+    res.redirect('/login');
+  });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Owner account: ${process.env.OWNER_EMAIL}`);
+});

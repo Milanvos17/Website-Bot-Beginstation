@@ -1,0 +1,18 @@
+// Trigger webhook without waiting for response (fire and forget)
+      axios.post(button.webhook_url, {
+        buttonId: button.id,
+        buttonTitle: button.title,
+        triggeredBy: req.session.userEmail,
+        timestamp: new Date().toISOString()
+      }, {
+        timeout: 5000
+      }).catch(error => {
+        // Log error but don't block the response
+        console.error('Webhook error:', error.message);
+      });
+      
+      // Immediately respond to user without waiting for webhook
+      res.json({ 
+        success: true, 
+        message: `Button "${button.title}" activated successfully!`
+      });
